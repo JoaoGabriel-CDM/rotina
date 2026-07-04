@@ -870,8 +870,7 @@ async function saveTask(friendId, day, hour, taskText, priority, isPrivate) {
   const status = current ? current.status : "livre";
 
   state.activities.set(key, { id: current ? current.id : null, status, task: taskText, priority, is_private: isPrivate });
-  renderAgenda();
-  renderScoreboard();
+  if (!isTypingInAgenda()) { renderAgenda(); renderScoreboard(); }
 
   const { data, error } = await supabaseClient
     .from("activities")
