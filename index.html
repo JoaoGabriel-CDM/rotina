@@ -131,10 +131,14 @@
         <div id="auth-info" class="hidden text-xs text-prod bg-prod/10 border border-prod/30 rounded-lg px-3 py-2 mb-3"></div>
 
         <div class="space-y-3">
-          <input id="auth-email" type="email" placeholder="seu@email.com"
+          <input id="auth-email" type="email" placeholder="seu@email.com" autocomplete="email"
             class="w-full bg-surfaceHover border border-border rounded-lg px-3 py-2.5 text-sm placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-accent/40" />
-          <input id="auth-password" type="password" placeholder="Senha (mínimo 6 caracteres)"
-            class="w-full bg-surfaceHover border border-border rounded-lg px-3 py-2.5 text-sm placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-accent/40" />
+          <div class="relative">
+            <input id="auth-password" type="password" placeholder="Senha (mínimo 6 caracteres)" autocomplete="current-password"
+              class="w-full bg-surfaceHover border border-border rounded-lg px-3 py-2.5 pr-10 text-sm placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-accent/40" />
+            <button id="auth-password-toggle" type="button" tabindex="-1"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-textMuted hover:text-textPrimary text-sm">👁️</button>
+          </div>
         </div>
 
         <button id="auth-submit-btn" class="w-full mt-4 py-2.5 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 active:scale-95 transition">
@@ -146,24 +150,41 @@
   </div>
 
   <!-- ============================================================
-       MODAL: completar/reivindicar perfil (primeiro acesso)
+       MODAL: minha conta (editar perfil / excluir perfil)
   ============================================================ -->
-  <div id="profile-setup-backdrop" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4">
+  <div id="account-modal-backdrop" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4">
     <div class="bg-surface border border-border rounded-xl p-5 w-full max-w-sm fade-in">
-      <h3 class="font-display font-semibold text-base mb-1">Quase lá!</h3>
-      <p class="text-xs text-textMuted mb-4">Escolha um perfil já existente do grupo para assumir, ou crie o seu.</p>
+      <h3 class="font-display font-semibold text-base mb-1">Minha conta</h3>
+      <p class="text-xs text-textMuted mb-4">Edite como os outros veem seu perfil no grupo.</p>
 
-      <div id="claimable-friends" class="space-y-2 mb-4"></div>
+      <label class="text-[11px] uppercase tracking-wide text-textMuted mb-1 block">Seu nome</label>
+      <input id="account-name" type="text" placeholder="Seu nome"
+        class="w-full bg-surfaceHover border border-border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-accent/40" />
 
-      <div class="border-t border-border pt-4">
-        <p class="text-xs text-textMuted mb-2">Ou crie um perfil novo:</p>
-        <input id="setup-name" type="text" placeholder="Seu nome"
-          class="w-full bg-surfaceHover border border-border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-accent/40" />
-        <div class="flex gap-2 mb-3" id="setup-color-picker"></div>
-        <button id="setup-create-btn" class="w-full py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition">
-          Criar meu perfil
-        </button>
+      <label class="text-[11px] uppercase tracking-wide text-textMuted mb-2 block">Sua cor</label>
+      <div class="flex gap-2 mb-4 flex-wrap" id="account-color-picker"></div>
+
+      <div class="flex justify-end gap-2 mb-5">
+        <button id="account-cancel-btn" class="px-3 py-2 text-sm text-textMuted hover:text-textPrimary transition">Fechar</button>
+        <button id="account-save-btn" class="px-4 py-2 text-sm bg-accent rounded-lg text-white font-medium hover:bg-accent/90 transition">Salvar</button>
       </div>
+
+      <details class="border-t border-border pt-3">
+        <summary class="text-xs text-textMuted cursor-pointer select-none hover:text-red-400 transition">Zona de risco</summary>
+        <div class="mt-3">
+          <p class="text-[11px] text-textMuted mb-2">
+            Isso apaga seu perfil, sua agenda, metas e histórico de streak permanentemente. Não pode ser desfeito.
+            Sua conta de e-mail continua existindo (você pode criar um perfil novo depois).
+          </p>
+          <p class="text-[11px] text-textMuted mb-1.5">Para confirmar, digite seu nome (<span id="account-delete-name-hint" class="text-textPrimary font-medium"></span>) abaixo:</p>
+          <input id="account-delete-confirm-input" type="text" placeholder="Digite seu nome exatamente"
+            class="w-full bg-surfaceHover border border-red-400/40 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-red-400/40" />
+          <button id="account-delete-btn" disabled
+            class="w-full py-2 rounded-lg border border-red-400/50 text-red-400 text-sm font-medium opacity-40 cursor-not-allowed transition">
+            Excluir meu perfil definitivamente
+          </button>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -188,6 +209,9 @@
             <span id="conn-dot" class="w-2 h-2 rounded-full bg-textMuted"></span>
             <span id="conn-text">conectando…</span>
           </span>
+          <button id="account-btn" title="Minha conta" class="text-xs w-8 h-8 flex items-center justify-center rounded-full border border-border text-textMuted hover:text-textPrimary hover:border-accent/60 transition-colors">
+            ⚙️
+          </button>
           <button id="logout-btn" class="text-xs px-3 py-1.5 rounded-full border border-border text-textMuted hover:text-red-400 hover:border-red-400/50 transition-colors">
             Sair
           </button>
@@ -394,12 +418,29 @@ function setAuthMode(mode) {
   $("#auth-submit-btn").textContent = mode === "login" ? "Entrar" : "Criar conta";
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function translateAuthError(message) {
+  const m = (message || "").toLowerCase();
+  if (m.includes("rate limit")) {
+    return "O Supabase limitou o envio de e-mails de confirmação por agora (limite do plano gratuito). Espere alguns minutos e tente de novo, ou peça para o administrador desativar a confirmação por e-mail em Authentication → Providers → Email.";
+  }
+  if (m.includes("already registered") || m.includes("already exists") || m.includes("user already registered")) {
+    return "Esse e-mail já tem uma conta. Tente entrar em vez de criar uma nova.";
+  }
+  if (m.includes("invalid login credentials")) {
+    return "E-mail ou senha incorretos.";
+  }
+  return message;
+}
+
 async function handleAuthSubmit() {
   const email = $("#auth-email").value.trim();
   const password = $("#auth-password").value;
   clearAuthMessages();
 
   if (!email || !password) { showAuthError("Preencha e-mail e senha."); return; }
+  if (!EMAIL_REGEX.test(email)) { showAuthError("Digite um e-mail em um formato válido (ex: nome@dominio.com)."); return; }
   if (password.length < 6) { showAuthError("A senha precisa ter pelo menos 6 caracteres."); return; }
 
   $("#auth-submit-btn").disabled = true;
@@ -410,7 +451,7 @@ async function handleAuthSubmit() {
       password,
       options: { emailRedirectTo: window.location.origin + window.location.pathname },
     });
-    if (error) { showAuthError(error.message); $("#auth-submit-btn").disabled = false; return; }
+    if (error) { showAuthError(translateAuthError(error.message)); $("#auth-submit-btn").disabled = false; return; }
     if (data.session) {
       // Confirmação de e-mail desativada no projeto: já entra direto
       await onAuthenticated(data.session);
@@ -420,7 +461,7 @@ async function handleAuthSubmit() {
     }
   } else {
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) { showAuthError(error.message); $("#auth-submit-btn").disabled = false; return; }
+    if (error) { showAuthError(translateAuthError(error.message)); $("#auth-submit-btn").disabled = false; return; }
     await onAuthenticated(data.session);
   }
 
@@ -437,7 +478,9 @@ async function handleLogout() {
   $("#auth-password").value = "";
 }
 
-/* Roda assim que temos uma sessão válida: verifica se já existe perfil vinculado */
+/* Roda assim que temos uma sessão válida: verifica se já existe perfil vinculado.
+   Se não existir, cria um perfil novo automaticamente — ninguém precisa "assumir"
+   o perfil de outra pessoa. O nome pode ser editado depois em ⚙️ Minha conta. */
 async function onAuthenticated(session) {
   state.session = session;
 
@@ -456,85 +499,92 @@ async function onAuthenticated(session) {
     state.activeFriendId = myFriend.id;
     await enterApp();
   } else {
-    await openProfileSetup();
+    await createProfileAutomatically(session);
   }
 }
 
-/* 1º acesso: escolher um perfil "solto" (sem dono) ou criar um novo */
-async function openProfileSetup() {
-  const { data: allFriends } = await supabaseClient.from("friends").select("*").order("created_at", { ascending: true });
-  const claimable = (allFriends || []).filter((f) => !f.user_id);
-
-  const wrap = $("#claimable-friends");
-  wrap.innerHTML = "";
-  if (claimable.length === 0) {
-    wrap.innerHTML = `<p class="text-xs text-textMuted">Nenhum perfil disponível para assumir ainda.</p>`;
-  } else {
-    claimable.forEach((f) => {
-      const btn = document.createElement("button");
-      btn.className = "w-full flex items-center gap-2 bg-surfaceHover border border-border rounded-lg px-3 py-2 text-left hover:border-accent/60 transition-colors";
-      btn.innerHTML = `
-        <span class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-black/80"
-              style="background:${f.color}">${f.name.charAt(0).toUpperCase()}</span>
-        <span class="text-sm">${escapeHtml(f.name)}</span>
-      `;
-      btn.addEventListener("click", () => claimFriendProfile(f.id));
-      wrap.appendChild(btn);
-    });
-  }
-
-  renderSetupColorPicker();
-  $("#profile-setup-backdrop").classList.remove("hidden");
-  $("#profile-setup-backdrop").classList.add("flex");
+function suggestNameFromEmail(email) {
+  const local = (email.split("@")[0] || "amigo").replace(/[._-]+/g, " ").trim();
+  return local.charAt(0).toUpperCase() + local.slice(1);
 }
 
-function closeProfileSetup() {
-  $("#profile-setup-backdrop").classList.add("hidden");
-  $("#profile-setup-backdrop").classList.remove("flex");
-}
-
-function renderSetupColorPicker() {
-  const wrap = $("#setup-color-picker");
-  wrap.innerHTML = "";
-  FRIEND_COLORS.forEach((color) => {
-    const dot = document.createElement("button");
-    dot.className = "w-7 h-7 rounded-full border-2 transition-transform hover:scale-110";
-    dot.style.backgroundColor = color;
-    dot.style.borderColor = color === state.chosenColor ? "#E8E9ED" : "transparent";
-    dot.addEventListener("click", () => { state.chosenColor = color; renderSetupColorPicker(); });
-    wrap.appendChild(dot);
-  });
-}
-
-async function claimFriendProfile(friendId) {
-  const { data, error } = await supabaseClient
-    .from("friends")
-    .update({ user_id: state.session.user.id })
-    .eq("id", friendId)
-    .select()
-    .single();
-
-  if (error) { showToast("Erro ao assumir perfil: " + error.message, "error"); return; }
-  state.activeFriendId = data.id;
-  closeProfileSetup();
-  await enterApp();
-}
-
-async function createNewProfile() {
-  const name = $("#setup-name").value.trim();
-  if (!name) { showToast("Digite um nome para o seu perfil.", "error"); return; }
+async function createProfileAutomatically(session) {
+  const name = suggestNameFromEmail(session.user.email || "");
+  const color = FRIEND_COLORS[Math.floor(Math.random() * FRIEND_COLORS.length)];
 
   const { data, error } = await supabaseClient
     .from("friends")
-    .insert({ name, color: state.chosenColor, user_id: state.session.user.id })
+    .insert({ name, color, user_id: session.user.id })
     .select()
     .single();
 
   if (error) { showToast("Erro ao criar perfil: " + error.message, "error"); return; }
   state.activeFriendId = data.id;
-  closeProfileSetup();
-  showToast(`Bem-vindo(a), ${name}! 🎉`, "success");
+  showToast(`Bem-vindo(a), ${name}! Você pode mudar seu nome e cor em ⚙️ a qualquer momento.`, "success");
   await enterApp();
+}
+
+/* =========================================================================
+   MODAL: MINHA CONTA (editar nome/cor, excluir perfil com confirmação)
+   ========================================================================= */
+function openAccountModal() {
+  const me = friendById(state.activeFriendId);
+  if (!me) return;
+  state.accountChosenColor = me.color;
+  $("#account-name").value = me.name;
+  $("#account-delete-name-hint").textContent = me.name;
+  $("#account-delete-confirm-input").value = "";
+  $("#account-delete-btn").disabled = true;
+  $("#account-delete-btn").classList.add("opacity-40", "cursor-not-allowed");
+  renderAccountColorPicker();
+  $("#account-modal-backdrop").classList.remove("hidden");
+  $("#account-modal-backdrop").classList.add("flex");
+}
+function closeAccountModal() {
+  $("#account-modal-backdrop").classList.add("hidden");
+  $("#account-modal-backdrop").classList.remove("flex");
+}
+function renderAccountColorPicker() {
+  const wrap = $("#account-color-picker");
+  wrap.innerHTML = "";
+  FRIEND_COLORS.forEach((color) => {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "w-7 h-7 rounded-full border-2 transition-transform hover:scale-110";
+    dot.style.backgroundColor = color;
+    dot.style.borderColor = color === state.accountChosenColor ? "#E8E9ED" : "transparent";
+    dot.addEventListener("click", () => { state.accountChosenColor = color; renderAccountColorPicker(); });
+    wrap.appendChild(dot);
+  });
+}
+async function saveAccountProfile() {
+  const me = friendById(state.activeFriendId);
+  if (!me) return;
+  const name = $("#account-name").value.trim();
+  if (!name) { showToast("Digite um nome válido.", "error"); return; }
+
+  const { data, error } = await supabaseClient
+    .from("friends")
+    .update({ name, color: state.accountChosenColor })
+    .eq("id", me.id)
+    .select()
+    .single();
+
+  if (error) { showToast("Erro ao salvar perfil: " + error.message, "error"); return; }
+  const idx = state.friends.findIndex((f) => f.id === data.id);
+  if (idx !== -1) state.friends[idx] = data;
+  renderAll();
+  closeAccountModal();
+  showToast("Perfil atualizado! ✅", "success");
+}
+async function deleteMyProfile() {
+  const me = friendById(state.activeFriendId);
+  if (!me) return;
+  const { error } = await supabaseClient.from("friends").delete().eq("id", me.id);
+  if (error) { showToast("Erro ao excluir perfil: " + error.message, "error"); return; }
+  showToast("Perfil excluído. Até mais! 👋", "success");
+  closeAccountModal();
+  await handleLogout();
 }
 
 async function enterApp() {
@@ -1212,7 +1262,29 @@ function bindStaticEvents() {
   $("#auth-submit-btn").addEventListener("click", handleAuthSubmit);
   $("#auth-password").addEventListener("keydown", (e) => { if (e.key === "Enter") handleAuthSubmit(); });
   $("#logout-btn").addEventListener("click", handleLogout);
-  $("#setup-create-btn").addEventListener("click", createNewProfile);
+
+  $("#auth-password-toggle").addEventListener("click", () => {
+    const input = $("#auth-password");
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    $("#auth-password-toggle").textContent = showing ? "👁️" : "🙈";
+  });
+
+  $("#account-btn").addEventListener("click", openAccountModal);
+  $("#account-cancel-btn").addEventListener("click", closeAccountModal);
+  $("#account-modal-backdrop").addEventListener("click", (e) => { if (e.target.id === "account-modal-backdrop") closeAccountModal(); });
+  $("#account-save-btn").addEventListener("click", saveAccountProfile);
+  $("#account-delete-confirm-input").addEventListener("input", () => {
+    const me = friendById(state.activeFriendId);
+    const matches = me && $("#account-delete-confirm-input").value.trim() === me.name;
+    $("#account-delete-btn").disabled = !matches;
+    $("#account-delete-btn").classList.toggle("opacity-40", !matches);
+    $("#account-delete-btn").classList.toggle("cursor-not-allowed", !matches);
+  });
+  $("#account-delete-btn").addEventListener("click", () => {
+    if ($("#account-delete-btn").disabled) return;
+    deleteMyProfile();
+  });
 
   $("#mural-send").addEventListener("click", sendMuralPost);
   $("#mural-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendMuralPost(); });
