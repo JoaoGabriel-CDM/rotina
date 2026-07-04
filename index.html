@@ -232,7 +232,7 @@
         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 class="font-display font-semibold text-base">Agenda do dia</h2>
           <div class="flex items-center gap-3 text-[11px] text-textMuted">
-            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-prod inline-block"></span> livre</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-border inline-block"></span> livre</span>
             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-accent inline-block"></span> produtivo</span>
           </div>
         </div>
@@ -248,7 +248,7 @@
 
         <p class="text-xs text-textMuted mb-3">
           Digite direto no campo de cada horário para descrever sua tarefa (salva sozinho). Use o botão
-          <span class="text-textPrimary font-medium">status</span> ao lado para marcar entre <span class="text-prod font-medium">Livre</span> e
+          <span class="text-textPrimary font-medium">status</span> ao lado para marcar entre <span class="text-textMuted font-medium">Livre</span> e
           <span class="text-accent font-medium">Produtivo</span>. A linha com destaque dourado é a hora atual.
         </p>
         <div class="overflow-x-auto rounded-xl border border-border glow-border">
@@ -298,21 +298,25 @@ const supabaseClient = window.supabase.createClient(
 );
 
 /* 2) CONSTANTES DE DOMÍNIO */
+/* A ordem aqui é só de EXIBIÇÃO (começa segunda, termina domingo).
+   O "idx" continua igual ao Date.getDay() do JS (0=Dom...6=Sáb),
+   pois é isso que é salvo no banco e usado para achar "hoje". */
 const DAYS = [
-  { idx: 0, label: "Dom", full: "Domingo" },
   { idx: 1, label: "Seg", full: "Segunda" },
   { idx: 2, label: "Ter", full: "Terça" },
   { idx: 3, label: "Qua", full: "Quarta" },
   { idx: 4, label: "Qui", full: "Quinta" },
   { idx: 5, label: "Sex", full: "Sexta" },
   { idx: 6, label: "Sáb", full: "Sábado" },
+  { idx: 0, label: "Dom", full: "Domingo" },
 ];
 
 const HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0];
 const REACTION_EMOJIS = ["👏", "🔥", "😂", "💪"];
 
-const STATUS_BG = { livre: "#3DD68C1A", produtivo: "#6E8CFF20" };
-const STATUS_BORDER = { livre: "#3DD68C", produtivo: "#6E8CFF" };
+const STATUS_BG = { livre: "#1B1E26", produtivo: "#6E8CFF20" };
+const STATUS_BORDER = { livre: "#262A35", produtivo: "#6E8CFF" };
+const STATUS_TEXT = { livre: "#8B8FA3", produtivo: "#6E8CFF" };
 const STATUS_LABEL = { livre: "Livre", produtivo: "Produtivo" };
 
 const FRIEND_COLORS = [
@@ -469,13 +473,23 @@ async function handleAuthSubmit() {
 }
 
 async function handleLogout() {
+  teardownRealtime();
   await supabaseClient.auth.signOut();
   state.session = null;
   state.activeFriendId = null;
+  state.friends = [];
+  state.activities = new Map();
+  state.dailyGoals = new Map();
+  state.muralPosts = [];
+  state.reactions = new Map();
+  state.completionLogs = new Map();
+  state.weeklyPrevious = new Map();
   $("#app-root").style.display = "none";
   $("#auth-screen").style.display = "flex";
   $("#auth-email").value = "";
   $("#auth-password").value = "";
+  clearAuthMessages();
+  $("#auth-submit-btn").disabled = false;
 }
 
 /* Roda assim que temos uma sessão válida: verifica se já existe perfil vinculado.
@@ -747,7 +761,7 @@ function renderAgenda() {
         statusBtn.type = "button";
         statusBtn.className = "status-pill shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors";
         statusBtn.style.borderColor = STATUS_BORDER[status];
-        statusBtn.style.color = STATUS_BORDER[status];
+        statusBtn.style.color = STATUS_TEXT[status];
         statusBtn.style.backgroundColor = STATUS_BG[status];
         statusBtn.textContent = STATUS_LABEL[status];
         statusBtn.title = "Clique para alternar entre Livre e Produtivo";
@@ -772,7 +786,7 @@ function renderAgenda() {
         const statusLabel = document.createElement("span");
         statusLabel.className = "text-[10px] font-semibold px-2 py-0.5 rounded-full border";
         statusLabel.style.borderColor = STATUS_BORDER[status];
-        statusLabel.style.color = STATUS_BORDER[status];
+        statusLabel.style.color = STATUS_TEXT[status];
         statusLabel.textContent = STATUS_LABEL[status];
         topRow.appendChild(statusLabel);
         if (isPrivate) {
@@ -1056,15 +1070,27 @@ function renderMural() {
     const item = document.createElement("div");
     item.className = "mural-post bg-surface border border-border rounded-lg px-3 py-2.5 flex flex-col gap-1.5";
     const time = new Date(post.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const isMine = activeFriend && post.author === activeFriend.name;
 
     const topRow = document.createElement("div");
+    topRow.className = "flex items-start justify-between gap-2";
     topRow.innerHTML = `
-      <div class="flex items-center gap-2 mb-0.5">
-        <span class="text-sm font-medium">${escapeHtml(post.author)}</span>
-        <span class="text-[11px] text-textMuted">${time}</span>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 mb-0.5">
+          <span class="text-sm font-medium">${escapeHtml(post.author)}</span>
+          <span class="text-[11px] text-textMuted">${time}</span>
+        </div>
+        <p class="text-sm text-textPrimary/90">${escapeHtml(post.content)}</p>
       </div>
-      <p class="text-sm text-textPrimary/90">${escapeHtml(post.content)}</p>
     `;
+    if (isMine) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "shrink-0 text-textMuted hover:text-red-400 text-xs px-1.5 transition-colors";
+      delBtn.title = "Excluir seu recado";
+      delBtn.textContent = "✕";
+      delBtn.addEventListener("click", () => deleteMuralPost(post.id));
+      topRow.appendChild(delBtn);
+    }
     item.appendChild(topRow);
 
     const reactionsRow = document.createElement("div");
@@ -1110,6 +1136,17 @@ async function sendMuralPost() {
   const { error } = await supabaseClient.from("mural_posts").insert({ author: friend.name, content });
   if (error) { showToast("Erro ao enviar: " + error.message, "error"); return; }
   input.value = "";
+}
+
+async function deleteMuralPost(postId) {
+  const friend = friendById(state.activeFriendId);
+  const post = state.muralPosts.find((p) => p.id === postId);
+  if (!friend || !post || post.author !== friend.name) return;
+
+  const { error } = await supabaseClient.from("mural_posts").delete().eq("id", postId);
+  if (error) { showToast("Erro ao excluir recado: " + error.message, "error"); return; }
+  state.muralPosts = state.muralPosts.filter((p) => p.id !== postId);
+  renderMural();
 }
 
 /* 17) CARREGAMENTO INICIAL (após login) */
@@ -1176,9 +1213,25 @@ function renderAll() {
   renderMural();
 }
 
+/* Evita recriar a grade (e derrubar o foco do campo que o usuário está digitando)
+   quando uma atualização em tempo real chega enquanto ele ainda está escrevendo.
+   Sem isso, o input era destruído e recriado a cada sincronização, tirando o
+   foco do textarea — e a barra de espaço passava a rolar a página inteira. */
+function isTypingInAgenda() {
+  const el = document.activeElement;
+  return !!(el && el.closest && el.closest("#agenda-grid") && (el.tagName === "TEXTAREA" || el.tagName === "INPUT"));
+}
+
 /* 18) REALTIME */
+let realtimeChannel = null;
 function setupRealtime() {
-  supabaseClient
+  // Evita assinar o mesmo canal duas vezes (ex: logout/login sem dar F5),
+  // que causava comportamento instável até recarregar a página.
+  if (realtimeChannel) {
+    supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  realtimeChannel = supabaseClient
     .channel("rotina-da-galera-realtime")
     .on("postgres_changes", { event: "*", schema: "public", table: "friends" }, handleFriendsChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "activities" }, handleActivitiesChange)
@@ -1190,6 +1243,12 @@ function setupRealtime() {
       if (status === "SUBSCRIBED") setConnectionStatus(true);
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setConnectionStatus(false);
     });
+}
+function teardownRealtime() {
+  if (realtimeChannel) {
+    supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
 }
 
 function handleFriendsChange(payload) {
@@ -1203,7 +1262,7 @@ function handleFriendsChange(payload) {
     for (const key of state.activities.keys()) if (key.startsWith(`${payload.old.id}_`)) state.activities.delete(key);
   }
   renderProfileSwitcher();
-  renderAgenda();
+  if (!isTypingInAgenda()) renderAgenda();
   renderScoreboard();
 }
 function handleActivitiesChange(payload) {
@@ -1211,7 +1270,7 @@ function handleActivitiesChange(payload) {
   const key = activityKey(row.friend_id, row.day_of_week, row.hour);
   if (payload.eventType === "DELETE") state.activities.delete(key);
   else state.activities.set(key, { id: row.id, status: row.status, task: row.task || "", priority: !!row.priority, is_private: !!row.is_private });
-  renderAgenda();
+  if (!isTypingInAgenda()) renderAgenda();
   renderScoreboard();
 }
 function handleGoalsChange(payload) {
@@ -1219,7 +1278,7 @@ function handleGoalsChange(payload) {
   const key = goalKey(row.friend_id, row.day_of_week);
   if (payload.eventType === "DELETE") state.dailyGoals.delete(key);
   else state.dailyGoals.set(key, { id: row.id, goal: row.goal || "" });
-  renderAgenda();
+  if (!isTypingInAgenda()) renderAgenda();
 }
 function handleMuralChange(payload) {
   if (payload.eventType === "INSERT") {
@@ -1304,6 +1363,7 @@ function bindStaticEvents() {
 
   supabaseClient.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
+      teardownRealtime();
       $("#app-root").style.display = "none";
       $("#auth-screen").style.display = "flex";
     }
