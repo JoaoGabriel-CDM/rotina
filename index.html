@@ -1018,8 +1018,9 @@ async function copyFromDay(sourceDay) {
     if (sourceActivity && (sourceActivity.task || sourceActivity.status === "produtivo")) {
       const destKey = activityKey(friendId, state.currentDay, hour);
       const destCurrent = state.activities.get(destKey);
-      rows.push({
-        id: destCurrent ? destCurrent.id : undefined,
+      // Só inclui "id" quando há um UUID válido no destino — evita mandar id:null
+      // pro banco (que viola o NOT NULL) quando a activity estava no state sem id
+      const row = {
         friend_id: friendId,
         day_of_week: state.currentDay,
         hour,
@@ -1028,7 +1029,9 @@ async function copyFromDay(sourceDay) {
         priority: sourceActivity.priority || false,
         is_private: sourceActivity.is_private || false,
         done: false,
-      });
+      };
+      if (destCurrent && destCurrent.id) row.id = destCurrent.id;
+      rows.push(row);
     }
   });
 
