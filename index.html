@@ -120,6 +120,9 @@
   .reaction-btn:active { transform: scale(0.92); }
   .reaction-btn.reacted { background: #6E8CFF22; border-color: #6E8CFF; }
 
+  .goals-tab-btn { border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .2s, border-color .2s; }
+  .goals-tab-btn.active { color: #E8E9ED; border-bottom-color: #6E8CFF; }
+
   #app-root { display: none; }
 </style>
 </head>
@@ -281,6 +284,20 @@
         <div id="scoreboard" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"></div>
       </section>
 
+      <section class="mb-10" id="goals-section">
+        <h2 class="font-display font-semibold text-base mb-3">Metas</h2>
+        <div class="bg-surface border border-border rounded-xl p-4 glow-border">
+          <!-- abas -->
+          <div class="flex gap-1 border-b border-border mb-4" id="goals-tabs">
+            <button class="goals-tab-btn text-xs px-3 py-2 text-textMuted hover:text-textPrimary transition-colors relative" data-tab="daily">Diária</button>
+            <button class="goals-tab-btn text-xs px-3 py-2 text-textMuted hover:text-textPrimary transition-colors relative" data-tab="weekly">Semanal</button>
+            <button class="goals-tab-btn text-xs px-3 py-2 text-textMuted hover:text-textPrimary transition-colors relative" data-tab="monthly">Mensal</button>
+            <button class="goals-tab-btn text-xs px-3 py-2 text-textMuted hover:text-textPrimary transition-colors relative" data-tab="yearly">Anual</button>
+          </div>
+          <div id="goals-content"></div>
+        </div>
+      </section>
+
       <section class="mb-10">
         <h2 class="font-display font-semibold text-base mb-3">Mural</h2>
         <div class="bg-surface border border-border rounded-xl p-3 mb-4 glow-border">
@@ -359,6 +376,7 @@ const state = {
   chosenColor: FRIEND_COLORS[0],
   editingContext: null,
   authMode: "login",      // "login" | "signup"
+  goalsTab: "daily",      // "daily" | "weekly" | "monthly" | "yearly"
 };
 
 const TODAY_WEEKDAY = new Date().getDay();
@@ -712,30 +730,8 @@ function renderAgenda() {
         <span class="text-sm font-medium truncate">${escapeHtml(friend.name)}</span>
         ${isEditable ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-accent/20 text-accent shrink-0">você</span>' : ""}
       </div>
-      ${streak > 0 ? `<div class="text-[11px] text-gold mb-2 flex items-center gap-1">🔥 <span>${streak} dia${streak === 1 ? "" : "s"} seguidos</span></div>` : `<div class="mb-2"></div>`}
-      <div class="text-[10px] uppercase tracking-wide text-textMuted mb-1">Meta do dia</div>
+      ${streak > 0 ? `<div class="text-[11px] text-gold mb-1 flex items-center gap-1">🔥 <span>${streak} dia${streak === 1 ? "" : "s"} seguidos</span></div>` : ""}
     `;
-
-    const goalBox = document.createElement("div");
-    if (isEditable) {
-      goalBox.innerHTML = `
-        <input type="text" data-goal-input value="${escapeHtml(goalText)}" placeholder="Qual é sua meta hoje?"
-          class="w-full bg-surfaceHover border border-border rounded-lg px-2 py-1.5 text-xs placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-accent/40" />
-      `;
-      col.appendChild(goalBox);
-      const input = goalBox.querySelector("[data-goal-input]");
-      let debounceTimer;
-      input.addEventListener("input", () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => saveDailyGoal(friend.id, state.currentDay, input.value.trim()), 500);
-      });
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); input.blur(); saveDailyGoal(friend.id, state.currentDay, input.value.trim()); }
-      });
-    } else {
-      goalBox.innerHTML = `<p class="text-xs text-textPrimary/90 min-h-[1.5rem]">${goalText ? escapeHtml(goalText) : '<span class="text-textMuted">sem meta definida</span>'}</p>`;
-      col.appendChild(goalBox);
-    }
 
     headerRow.appendChild(col);
   });
@@ -991,11 +987,35 @@ async function copyFromDay(sourceDay) {
   if (!friendId) return;
   if (sourceDay === state.currentDay) { showToast("Escolha um dia diferente do atual.", "error"); return; }
 
+  // Verifica se há pelo menos uma atividade do dia de origem já no state
+  const hasInState = HOURS.some((h) => state.activities.has(activityKey(friendId, sourceDay, h)));
+
+  // Se não tiver nada no state para esse dia, busca direto no banco
+  let sourceActivities = new Map();
+  if (hasInState) {
+    HOURS.forEach((h) => {
+      const key = activityKey(friendId, sourceDay, h);
+      const a = state.activities.get(key);
+      if (a) sourceActivities.set(h, a);
+    });
+  } else {
+    const { data: fetched, error: fetchErr } = await supabaseClient
+      .from("activities")
+      .select("*")
+      .eq("friend_id", friendId)
+      .eq("day_of_week", sourceDay);
+    if (fetchErr) { showToast("Erro ao buscar atividades: " + fetchErr.message, "error"); return; }
+    (fetched || []).forEach((a) => {
+      sourceActivities.set(a.hour, { id: a.id, status: a.status, task: a.task || "", priority: !!a.priority, is_private: !!a.is_private, done: !!a.done });
+      // Mantém no state também
+      state.activities.set(activityKey(friendId, sourceDay, a.hour), { id: a.id, status: a.status, task: a.task || "", priority: !!a.priority, is_private: !!a.is_private, done: !!a.done });
+    });
+  }
+
   const rows = [];
   HOURS.forEach((hour) => {
-    const sourceKey = activityKey(friendId, sourceDay, hour);
-    const sourceActivity = state.activities.get(sourceKey);
-    if (sourceActivity && sourceActivity.task) {
+    const sourceActivity = sourceActivities.get(hour);
+    if (sourceActivity && (sourceActivity.task || sourceActivity.status === "produtivo")) {
       const destKey = activityKey(friendId, state.currentDay, hour);
       const destCurrent = state.activities.get(destKey);
       rows.push({
@@ -1003,7 +1023,7 @@ async function copyFromDay(sourceDay) {
         friend_id: friendId,
         day_of_week: state.currentDay,
         hour,
-        status: "livre",
+        status: sourceActivity.status,
         task: sourceActivity.task,
         priority: sourceActivity.priority || false,
         is_private: sourceActivity.is_private || false,
@@ -1133,6 +1153,142 @@ function renderScoreboard() {
       <span class="font-display font-bold text-sm ${s.total > 0 ? "text-prod" : "text-textMuted"}">${s.total >= 0 ? "+" : ""}${s.total} pts</span>
     `;
     board.appendChild(card);
+  });
+}
+
+/* 15b) METAS — diária (Supabase), semanal/mensal/anual (localStorage por friend) */
+function goalsLSKey(type) {
+  return `rotina_goal_${type}_${state.activeFriendId}`;
+}
+function loadLocalGoal(type) {
+  try { return localStorage.getItem(goalsLSKey(type)) || ""; } catch { return ""; }
+}
+function saveLocalGoal(type, text) {
+  try { localStorage.setItem(goalsLSKey(type), text); } catch {}
+}
+
+function renderGoals() {
+  if (!state.goalsTab) state.goalsTab = "daily";
+  const tab = state.goalsTab;
+  const tabBtns = document.querySelectorAll(".goals-tab-btn");
+  tabBtns.forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+
+  const content = $("#goals-content");
+  content.innerHTML = "";
+
+  const isMe = !!state.activeFriendId;
+  const me = friendById(state.activeFriendId);
+
+  if (tab === "daily") {
+    // Mostra a meta de hoje (do Supabase) para cada pessoa do grupo
+    const wrap = document.createElement("div");
+    wrap.className = "space-y-3";
+
+    state.friends.forEach((f) => {
+      const isMine = f.id === state.activeFriendId;
+      const gKey = goalKey(f.id, TODAY_WEEKDAY);
+      const goalData = state.dailyGoals.get(gKey);
+      const goalText = goalData ? goalData.goal : "";
+
+      const row = document.createElement("div");
+      row.className = "flex items-start gap-2";
+
+      const avatar = document.createElement("span");
+      avatar.className = "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-black/80 shrink-0 mt-0.5";
+      avatar.style.background = f.color;
+      avatar.textContent = f.name.charAt(0).toUpperCase();
+      row.appendChild(avatar);
+
+      const right = document.createElement("div");
+      right.className = "flex-1 min-w-0";
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "text-xs font-medium text-textMuted block mb-1";
+      nameEl.textContent = f.name + (isMine ? " (você)" : "");
+      right.appendChild(nameEl);
+
+      if (isMine) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = goalText;
+        input.placeholder = "Qual é sua meta de hoje?";
+        input.className = "w-full bg-surfaceHover border border-border rounded-lg px-2.5 py-1.5 text-sm placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-accent/40";
+        let dt;
+        input.addEventListener("input", () => {
+          clearTimeout(dt);
+          dt = setTimeout(() => saveDailyGoal(f.id, TODAY_WEEKDAY, input.value.trim()), 500);
+        });
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); saveDailyGoal(f.id, TODAY_WEEKDAY, input.value.trim()); } });
+        right.appendChild(input);
+      } else {
+        const p = document.createElement("p");
+        p.className = "text-sm " + (goalText ? "text-textPrimary/90" : "text-textMuted italic");
+        p.textContent = goalText || "sem meta definida";
+        right.appendChild(p);
+      }
+
+      row.appendChild(right);
+      wrap.appendChild(row);
+    });
+
+    content.appendChild(wrap);
+    return;
+  }
+
+  // Semanal / Mensal / Anual — só do próprio usuário (localStorage)
+  const labels = { weekly: "Semanal", monthly: "Mensal", yearly: "Anual" };
+  const placeholders = {
+    weekly: "O que você quer conquistar essa semana?",
+    monthly: "Qual é a sua meta para este mês?",
+    yearly: "Qual é o seu grande objetivo do ano?",
+  };
+
+  const myGoal = loadLocalGoal(tab);
+
+  // Minha meta (editável)
+  if (me) {
+    const mySection = document.createElement("div");
+    mySection.className = "mb-4";
+    const myLabel = document.createElement("div");
+    myLabel.className = "flex items-center gap-2 mb-2";
+    myLabel.innerHTML = `
+      <span class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-black/80 shrink-0" style="background:${me.color}">${me.name.charAt(0).toUpperCase()}</span>
+      <span class="text-xs font-medium text-textMuted">Você (${me.name})</span>
+    `;
+    mySection.appendChild(myLabel);
+
+    const textarea = document.createElement("textarea");
+    textarea.rows = 3;
+    textarea.value = myGoal;
+    textarea.placeholder = placeholders[tab];
+    textarea.className = "w-full bg-surfaceHover border border-border rounded-lg px-3 py-2 text-sm placeholder:text-textMuted focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none";
+    let dt2;
+    textarea.addEventListener("input", () => {
+      clearTimeout(dt2);
+      dt2 = setTimeout(() => saveLocalGoal(tab, textarea.value.trim()), 400);
+    });
+    textarea.addEventListener("blur", () => saveLocalGoal(tab, textarea.value.trim()));
+    mySection.appendChild(textarea);
+    content.appendChild(mySection);
+  }
+
+  // Metas dos outros (somente leitura, do localStorage deles — não visível pois é local)
+  const otherFriends = state.friends.filter((f) => f.id !== state.activeFriendId);
+  if (otherFriends.length > 0) {
+    const divider = document.createElement("p");
+    divider.className = "text-[11px] text-textMuted mt-2 mb-2 border-t border-border pt-2";
+    divider.textContent = "As metas semanal, mensal e anual dos outros membros ficam salvas apenas no dispositivo de cada um.";
+    content.appendChild(divider);
+  }
+}
+
+/* 15c) bind das abas de metas (chamado em bindStaticEvents) */
+function bindGoalsTabs() {
+  document.querySelectorAll(".goals-tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.goalsTab = btn.dataset.tab;
+      renderGoals();
+    });
   });
 }
 
@@ -1291,6 +1447,7 @@ function renderAll() {
   renderDayTabs();
   renderAgenda();
   renderScoreboard();
+  renderGoals();
   renderMural();
 }
 
@@ -1359,7 +1516,7 @@ function handleGoalsChange(payload) {
   const key = goalKey(row.friend_id, row.day_of_week);
   if (payload.eventType === "DELETE") state.dailyGoals.delete(key);
   else state.dailyGoals.set(key, { id: row.id, goal: row.goal || "" });
-  if (!isTypingInAgenda()) renderAgenda();
+  if (!isTypingInAgenda()) { renderAgenda(); renderGoals(); }
 }
 function handleMuralChange(payload) {
   if (payload.eventType === "INSERT") {
@@ -1431,6 +1588,8 @@ function bindStaticEvents() {
 
   $("#copy-yesterday-btn").addEventListener("click", () => copyFromDay((state.currentDay + 6) % 7));
   $("#copy-monday-btn").addEventListener("click", () => copyFromDay(1));
+
+  bindGoalsTabs();
 }
 
 /* 20) BOOTSTRAP: verifica se já existe sessão ativa (ex: recarregou a página) */
